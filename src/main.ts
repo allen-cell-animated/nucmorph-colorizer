@@ -1,7 +1,7 @@
 import { HexColorString } from "three";
 import { ColorizeCanvas, ColorRamp, Dataset, Track, Plotting } from "./colorizer";
-import RecordingControls from "./colorizer/RecordingControls";
-import TimeControls from "./colorizer/TimeControls";
+import RecordingController from "./colorizer/RecordingController";
+import TimeController from "./colorizer/TimeController";
 
 const baseUrl = "http://dev-aics-dtp-001.corp.alleninstitute.org/dan-data/colorizer/data";
 
@@ -21,8 +21,8 @@ const lockRangeCheckbox: HTMLInputElement = document.querySelector("#lock_range_
 const hideOutOfRangeCheckbox: HTMLInputElement = document.querySelector("#mask_range_checkbox")!;
 const resetRangeBtn: HTMLButtonElement = document.querySelector("#reset_range_btn")!;
 
-const timeControls = new TimeControls(canv, drawLoop);
-const recordingControls = new RecordingControls(canv, drawLoop);
+const timeControls = new TimeController(canv, drawLoop);
+const recordingControls = new RecordingController(canv, drawLoop);
 
 function addOptionTo(parent: HTMLSelectElement, value: string, child?: HTMLElement): void {
   const optionEl = document.createElement("option");

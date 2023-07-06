@@ -1,7 +1,7 @@
 import ColorizeCanvas from "./ColorizeCanvas";
 
 // time / playback controls
-export default class TimeControls {
+export default class TimeController {
   private playBtn: HTMLButtonElement;
   private pauseBtn: HTMLButtonElement;
   private forwardBtn: HTMLButtonElement;
@@ -48,8 +48,6 @@ export default class TimeControls {
   private playTimeSeries(onNewFrameCallback: () => void): void {
     clearInterval(this.timerId);
 
-    // TODO: Fix this function so that it doesn't stop the
-    // slider from also operating
     const loadNextFrame = async (): Promise<void> => {
       if (this.isDisabled) {
         // stop render loop if time controls have been disabled.

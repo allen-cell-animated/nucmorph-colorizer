@@ -1,6 +1,6 @@
 import ColorizeCanvas from "./ColorizeCanvas";
 
-export default class RecordingControls {
+export default class RecordingController {
   private startBtn: HTMLButtonElement;
   private abortBtn: HTMLButtonElement;
   private recording: boolean;

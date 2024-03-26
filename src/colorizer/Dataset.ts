@@ -269,6 +269,11 @@ export default class Dataset {
       return cachedFrame;
     }
 
+    // Allow for undefined or null frame files in the manifest
+    if (this.frameFiles[index] === undefined || this.frameFiles[index] === null) {
+      return undefined;
+    }
+
     const fullUrl = this.resolveUrl(this.frameFiles[index]);
     const loadedFrame = await this.frameLoader.load(fullUrl);
     this.frameDimensions = new Vector2(loadedFrame.image.width, loadedFrame.image.height);
@@ -294,6 +299,12 @@ export default class Dataset {
     if (!frames || index < 0 || index >= frames.length) {
       return undefined;
     }
+
+    // Allow for undefined or null backdrop frames in the manifest
+    if (this.frameFiles[index] === undefined || this.frameFiles[index] === null) {
+      return undefined;
+    }
+
     const fullUrl = this.resolveUrl(frames[index]);
     const loadedFrame = await this.backdropLoader.load(fullUrl);
     return loadedFrame;

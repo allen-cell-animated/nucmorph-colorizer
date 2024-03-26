@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="b" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 60">
+    <g id="c">
+        <ellipse cx="12.2" cy="20.8" rx="4.3" ry="4.4" stroke-width="0" />
+        <path
+            d="M40.1,11.4l2.4-3.8h0l3.4-5.5-3.1-2-4.7,7.6H0v44.9h10.2l-3.4,5.5,3.1,2.1L40.1,11.4h0ZM19.8,37l-4.2-5.5-10.1,14.7h8.6l-1.6,2.5H3.7V11.4h32.1l-16,25.6Z"
+            stroke-width="0" />
+        <polygon
+            points="46.7 7.6 44.4 11.4 46.7 11.4 56.3 11.4 56.3 48.6 21.1 48.6 18.8 52.4 60 52.4 60 7.6 46.7 7.6"
+            stroke-width="0" />
+        <polygon points="36.2 24.4 22.7 46.1 54.5 46.1 36.7 23.7 36.2 24.4"
+            stroke-width="0" />
+    </g>
+</svg>

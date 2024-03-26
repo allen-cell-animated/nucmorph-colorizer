@@ -1,9 +1,10 @@
-import { CheckCircleOutlined, ExportOutlined } from "@ant-design/icons";
+import { CheckCircleOutlined } from "@ant-design/icons";
 import { App, Button, Card, Input, InputNumber, Modal, Progress, Radio, RadioChangeEvent, Space, Tooltip } from "antd";
 import React, { ReactElement, useCallback, useContext, useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import { clamp } from "three/src/math/MathUtils";
 
+import { ExportIconSVG } from "../assets";
 import { FlexRow } from "../styles/utils";
 
 import CanvasRecorder, { RecordingOptions } from "../colorizer/recorders/CanvasRecorder";
@@ -432,7 +433,7 @@ export default function Export(inputProps: ExportButtonProps): ReactElement {
         }}
         disabled={props.disabled}
       >
-        <ExportOutlined />
+        <ExportIconSVG />
         <p>Export</p>
       </TextButton>
 

@@ -9,7 +9,7 @@ import { FlexRow } from "../styles/utils";
 import CanvasRecorder, { RecordingOptions } from "../colorizer/recorders/CanvasRecorder";
 import ImageSequenceRecorder from "../colorizer/recorders/ImageSequenceRecorder";
 import Mp4VideoRecorder, { VideoBitrate } from "../colorizer/recorders/Mp4VideoRecorder";
-import { AppThemeContext } from "./AppStyle";
+import { AppThemeContext, DocumentContext } from "./AppStyle";
 import TextButton from "./Buttons/TextButton";
 import { SettingsContainer, SettingsItem } from "./SettingsContainer";
 import SpinBox from "./SpinBox";
@@ -98,6 +98,7 @@ export default function Export(inputProps: ExportButtonProps): ReactElement {
   const props = { ...defaultProps, ...inputProps } as Required<ExportButtonProps>;
 
   const theme = useContext(AppThemeContext);
+  const { modalContainerRef } = useContext(DocumentContext);
 
   const enum RangeMode {
     ALL,
@@ -115,7 +116,6 @@ export default function Export(inputProps: ExportButtonProps): ReactElement {
   // Note: notification API seems to only place notifications at the top-level under the
   // <body> tag, which causes some issues with styling.
   const { modal, notification } = App.useApp();
-  const modalContextRef = useRef<HTMLDivElement>(null);
 
   const originalFrameRef = useRef(props.currentFrame);
   const [isLoadModalOpen, _setIsLoadModalOpen] = useState(false);
@@ -218,12 +218,12 @@ export default function Export(inputProps: ExportButtonProps): ReactElement {
       cancelText: "Back",
       centered: true,
       icon: null,
-      getContainer: modalContextRef.current || undefined,
+      getContainer: modalContainerRef || undefined,
       onOk: () => {
         stopRecording(true);
       },
     });
-  }, [isRecording, modalContextRef.current, stopRecording]);
+  }, [isRecording, modalContainerRef, stopRecording]);
 
   /**
    * Stop the recording without closing the modal.
@@ -423,7 +423,7 @@ export default function Export(inputProps: ExportButtonProps): ReactElement {
   );
 
   return (
-    <div ref={modalContextRef}>
+    <div>
       {/* Export button */}
       <TextButton
         onClick={() => {
@@ -445,7 +445,7 @@ export default function Export(inputProps: ExportButtonProps): ReactElement {
         centered={true}
         // Don't allow cancellation of modal by clicking off it when the recording is happening
         maskClosable={!isRecording}
-        getContainer={modalContextRef.current || undefined}
+        getContainer={modalContainerRef || undefined}
         footer={modalFooter}
       >
         <div style={{ display: "flex", flexDirection: "column", gap: "20px", marginBottom: "20px", marginTop: "15px" }}>

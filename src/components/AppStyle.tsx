@@ -1,5 +1,5 @@
 import { App, ConfigProvider } from "antd";
-import React, { createContext, PropsWithChildren, ReactElement } from "react";
+import React, { createContext, PropsWithChildren, ReactElement, useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 
 type AppStyleProps = {
@@ -97,6 +97,11 @@ const theme = {
 };
 
 export const AppThemeContext = createContext(theme);
+
+type DocumentContextType = {
+  modalContainerRef: HTMLDivElement | null;
+};
+export const DocumentContext = createContext<DocumentContextType>({ modalContainerRef: null });
 
 /** Applies theme as CSS variables that affect the rest of the document. */
 const CssContainer = styled.div`
@@ -256,6 +261,18 @@ const CssContainer = styled.div`
  *   - children: All the children that should be rendered with the applied styling.
  */
 export default function AppStyle(props: PropsWithChildren<AppStyleProps>): ReactElement {
+  // Provide a ref for modals to use as a container. This allows them to float over
+  // other elements in the app, and lets us use the <Modal> component from Ant instead
+  // of the static modal API through Ant.App, which is less flexible.
+  const modalContainerRef = useRef<HTMLDivElement>(null);
+
+  // Force a rerender so the context provider updates with the new div ref; otherwise
+  // the value will always be null.
+  const [, setForceRerender] = useState(false);
+  useEffect(() => {
+    setForceRerender(true);
+  }, []);
+
   return (
     <CssContainer className={props.className}>
       <link rel="preconnect" href="https://fonts.gstatic.com" />
@@ -323,7 +340,13 @@ export default function AppStyle(props: PropsWithChildren<AppStyleProps>): React
         {/* App provides context for the static notification, modal, and message APIs.
          * See https://ant.design/components/app.
          */}
-        <App>{props.children}</App>
+        <App>
+          <div ref={modalContainerRef}>
+            <DocumentContext.Provider value={{ modalContainerRef: modalContainerRef.current }}>
+              {props.children}
+            </DocumentContext.Provider>
+          </div>
+        </App>
       </ConfigProvider>
     </CssContainer>
   );

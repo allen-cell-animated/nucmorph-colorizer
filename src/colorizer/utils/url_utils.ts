@@ -64,6 +64,7 @@ const ALLEN_PREFIX_TO_HTTPS: Record<string, string> = {
 export type UrlParams = {
   collection: string;
   dataset: string;
+  /** Either feature key or feature name. */
   feature: string;
   track: number;
   time: number;
@@ -100,8 +101,8 @@ export function fetchWithTimeout(
  *
  * @param threshold FeatureThreshold to serialize.
  * @returns A string representing the threshold.
- * - For numeric features, the threshold is serialized as `featureName:unit:min:max`.
- * - For categorical features, the threshold is serialized as `featureName:unit:selected_hex`,
+ * - For numeric features, the threshold is serialized as `featureKey:unit:min:max`.
+ * - For categorical features, the threshold is serialized as `featureKey:unit:selected_hex`,
  * where `selected_hex` is the hex form of a binary number representing what categories are selected.
  *
  * The i-th place of the binary number is `1` if the i-th category in the feature's category list is enabled.
@@ -111,9 +112,9 @@ export function fetchWithTimeout(
  * The binary representation is `00101`, which is `0x05` in hex.
  */
 function serializeThreshold(threshold: FeatureThreshold): string {
-  // featureName + units are encoded in case it contains special characters (":" or ",").
+  // featureKey + units are encoded in case it contains special characters (":" or ",").
   // TODO: remove once feature keys are implemented.
-  const featureName = encodeURIComponent(threshold.featureName);
+  const featureKey = encodeURIComponent(threshold.featureKey);
   const featureUnit = encodeURIComponent(threshold.units);
 
   // TODO: Are there better characters I can be using here? ":" and "," take up
@@ -125,12 +126,12 @@ function serializeThreshold(threshold: FeatureThreshold): string {
       selectedBinary |= (threshold.enabledCategories[i] ? 1 : 0) << i;
     }
     const selectedHex = selectedBinary.toString(16);
-    return `${featureName}:${featureUnit}:${selectedHex}`;
+    return `${featureKey}:${featureUnit}:${selectedHex}`;
   } else {
     // Numeric feature
     const min = numberToStringDecimal(threshold.min, 3);
     const max = numberToStringDecimal(threshold.max, 3);
-    return `${featureName}:${featureUnit}:${min}:${max}`;
+    return `${featureKey}:${featureUnit}:${min}:${max}`;
   }
 }
 
@@ -142,12 +143,12 @@ function serializeThreshold(threshold: FeatureThreshold): string {
  * - `undefined` if the string could not be parsed.
  */
 function deserializeThreshold(thresholdString: string): FeatureThreshold | undefined {
-  const [featureName, featureUnit, ...selection] = thresholdString.split(":");
-  if (featureName === undefined || featureUnit === undefined) {
+  const [featureKey, featureUnit, ...selection] = thresholdString.split(":");
+  if (featureKey === undefined || featureUnit === undefined) {
     console.warn(
       "url_utils.deserializeThreshold: Could not parse threshold string: '" +
         thresholdString +
-        "'; feature name and/or units missing."
+        "'; feature key and/or units missing."
     );
     return undefined;
   }
@@ -161,7 +162,7 @@ function deserializeThreshold(thresholdString: string): FeatureThreshold | undef
       enabledCategories.push((selectedBinary & (1 << i)) !== 0);
     }
     threshold = {
-      featureName: decodeURIComponent(featureName),
+      featureKey: decodeURIComponent(featureKey),
       units: decodeURIComponent(featureUnit),
       type: ThresholdType.CATEGORICAL,
       enabledCategories,
@@ -169,7 +170,7 @@ function deserializeThreshold(thresholdString: string): FeatureThreshold | undef
   } else if (selection.length === 2) {
     // Feature is numeric and a range.
     threshold = {
-      featureName: decodeURIComponent(featureName),
+      featureKey: decodeURIComponent(featureKey),
       units: decodeURIComponent(featureUnit),
       type: ThresholdType.NUMERIC,
       min: parseFloat(selection[0]),
@@ -185,7 +186,7 @@ function deserializeThreshold(thresholdString: string): FeatureThreshold | undef
       `url_utils.deserializeThreshold: invalid threshold '${thresholdString}' has too many or too few parameters.`
     );
     threshold = {
-      featureName: decodeURIComponent(featureName),
+      featureKey: decodeURIComponent(featureKey),
       units: decodeURIComponent(featureUnit),
       type: ThresholdType.NUMERIC,
       min: NaN,

@@ -2,6 +2,7 @@ import { RGBAFormat, RGBAIntegerFormat, Texture, Vector2 } from "three";
 
 import { MAX_FEATURE_CATEGORIES } from "../constants";
 import { FeatureArrayType, FeatureDataType } from "./types";
+import { getKeyFromName } from "./utils/data_utils";
 import { AnyManifestFile, ManifestFile, ManifestFileMetadata, updateManifestVersion } from "./utils/dataset_utils";
 import * as urlUtils from "./utils/url_utils";
 
@@ -18,6 +19,8 @@ export enum FeatureType {
 }
 
 export type FeatureData = {
+  name: string;
+  key: string;
   data: Float32Array;
   tex: Texture;
   min: number;
@@ -57,6 +60,7 @@ export default class Dataset {
 
   private arrayLoader: IArrayLoader;
   // Use map to enforce ordering
+  /** Ordered map from feature keys to feature data. */
   private features: Map<string, FeatureData>;
 
   private outlierFile?: string;
@@ -122,10 +126,11 @@ export default class Dataset {
 
   /**
    * Loads a feature from the dataset, fetching its data from the provided url.
-   * @returns A promise of an array tuple containing the feature name and its FeatureData.
+   * @returns A promise of an array tuple containing the feature key and its FeatureData.
    */
   private async loadFeature(metadata: ManifestFile["features"][number]): Promise<[string, FeatureData]> {
     const name = metadata.name;
+    const key = metadata.key || getKeyFromName(name);
     const url = this.resolveUrl(metadata.data);
     const source = await this.arrayLoader.load(url);
     const featureType = this.parseFeatureType(metadata.type);
@@ -142,8 +147,10 @@ export default class Dataset {
     }
 
     return [
-      name,
+      key,
       {
+        name,
+        key,
         tex: source.getTexture(FeatureDataType.F32),
         data: source.getBuffer(FeatureDataType.F32),
         min: source.getMin(),
@@ -155,20 +162,57 @@ export default class Dataset {
     ];
   }
 
-  public hasFeature(name: string): boolean {
-    return this.featureNames.includes(name);
+  public hasFeatureKey(key: string): boolean {
+    return this.featureKeys.includes(key);
   }
 
   /**
-   * Attempts to get the feature data from this dataset for the given feature name.
-   * Returns `undefined` if feature is not in the dataset.
+   * Returns the feature key if a feature with a matching key or name exists in the
+   * dataset.
+   * @param keyOrName String key or name of the feature to find.
+   * @returns The feature key if found, otherwise undefined.
    */
-  public getFeatureData(name: string): FeatureData | undefined {
-    return this.features.get(name);
+  public findFeatureByKeyOrName(keyOrName: string): string | undefined {
+    if (this.hasFeatureKey(keyOrName)) {
+      return keyOrName;
+    } else {
+      return this.findFeatureKeyFromName(keyOrName);
+    }
   }
 
-  public getFeatureNameWithUnits(name: string): string {
-    const units = this.getFeatureUnits(name);
+  /**
+   * Attempts to find a matching feature key for a feature name.
+   * @returns The feature key if found, otherwise undefined.
+   */
+  public findFeatureKeyFromName(name: string): string | undefined {
+    return Array.from(this.features.values()).find((f) => f.name === name)?.key;
+  }
+
+  /**
+   * Attempts to get the feature data from this dataset for the given feature key.
+   * Returns `undefined` if feature is not in the dataset.
+   */
+  public getFeatureData(key: string): FeatureData | undefined {
+    return this.features.get(key);
+  }
+
+  public getFeatureName(key: string): string | undefined {
+    return this.features.get(key)?.name;
+  }
+
+  /**
+   * Gets the feature's units if it exists; otherwise returns an empty string.
+   */
+  public getFeatureUnits(key: string): string {
+    return this.getFeatureData(key)?.units || "";
+  }
+
+  public getFeatureNameWithUnits(key: string): string {
+    const name = this.getFeatureName(key);
+    if (!name) {
+      return "N/A";
+    }
+    const units = this.getFeatureUnits(key);
     if (units) {
       return `${name} (${units})`;
     } else {
@@ -177,35 +221,28 @@ export default class Dataset {
   }
 
   /**
-   * Gets the feature's units if it exists; otherwise returns an empty string.
-   */
-  public getFeatureUnits(name: string): string {
-    return this.getFeatureData(name)?.units || "";
-  }
-
-  /**
    * Returns the FeatureType of the given feature, if it exists.
-   * @param name Feature name to retrieve
+   * @param key Feature key to retrieve
    * @throws An error if the feature does not exist.
    * @returns The FeatureType of the given feature (categorical, continuous, or discrete)
    */
-  public getFeatureType(name: string): FeatureType {
-    const featureData = this.getFeatureData(name);
+  public getFeatureType(key: string): FeatureType {
+    const featureData = this.getFeatureData(key);
     if (featureData === undefined) {
-      throw new Error("Feature '" + name + "' does not exist in dataset.");
+      throw new Error("Feature '" + key + "' does not exist in dataset.");
     }
     return featureData.type;
   }
 
   /**
    * Returns the array of string categories for the given feature, if it exists and is categorical.
-   * @param name Feature name to retrieve.
+   * @param key Feature key to retrieve.
    * @returns The array of string categories for the given feature, or null if the feature is not categorical.
    */
-  public getFeatureCategories(name: string): string[] | null {
-    const featureData = this.getFeatureData(name);
+  public getFeatureCategories(key: string): string[] | null {
+    const featureData = this.getFeatureData(key);
     if (featureData === undefined) {
-      throw new Error("Feature '" + name + "' does not exist in dataset.");
+      throw new Error("Feature '" + key + "' does not exist in dataset.");
     }
     if (featureData.type === FeatureType.CATEGORICAL) {
       return featureData.categories;
@@ -214,8 +251,8 @@ export default class Dataset {
   }
 
   /** Returns whether the given feature represents categorical data. */
-  public isFeatureCategorical(name: string): boolean {
-    const featureData = this.getFeatureData(name);
+  public isFeatureCategorical(key: string): boolean {
+    const featureData = this.getFeatureData(key);
     return featureData !== undefined && featureData.type === FeatureType.CATEGORICAL;
   }
 
@@ -246,12 +283,12 @@ export default class Dataset {
     return this.frames?.length || 0;
   }
 
-  public get featureNames(): string[] {
+  public get featureKeys(): string[] {
     return Array.from(this.features.keys());
   }
 
   public get numObjects(): number {
-    const featureData = this.getFeatureData(this.featureNames[0]);
+    const featureData = this.getFeatureData(this.featureKeys[0]);
     if (!featureData) {
       throw new Error("Dataset.numObjects: The first feature could not be loaded. Is the dataset manifest file valid?");
     }
@@ -362,8 +399,8 @@ export default class Dataset {
     this.bounds = bounds;
 
     // Keep original sorting order of features by inserting in promise order.
-    featureResults.forEach(([name, data]) => {
-      this.features.set(name, data);
+    featureResults.forEach(([key, data]) => {
+      this.features.set(key, data);
     });
 
     if (this.features.size === 0) {
@@ -428,10 +465,10 @@ export default class Dataset {
    * Get the times and values of a track for a given feature
    * this data is suitable to hand to d3 or plotly as two arrays of domain and range values
    */
-  public buildTrackFeaturePlot(track: Track, feature: string): { domain: number[]; range: number[] } {
-    const featureData = this.getFeatureData(feature);
+  public buildTrackFeaturePlot(track: Track, featureKey: string): { domain: number[]; range: number[] } {
+    const featureData = this.getFeatureData(featureKey);
     if (!featureData) {
-      throw new Error("Dataset.buildTrackFeaturePlot: Feature '" + feature + "' does not exist in dataset.");
+      throw new Error("Dataset.buildTrackFeaturePlot: Feature '" + featureKey + "' does not exist in dataset.");
     }
     const range = track.ids.map((i) => featureData.data[i]);
     const domain = track.times;

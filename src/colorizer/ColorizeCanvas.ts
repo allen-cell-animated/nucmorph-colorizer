@@ -135,7 +135,7 @@ export default class ColorizeCanvas {
   private points: Float32Array;
   private canvasResolution: Vector2 | null;
 
-  private featureName: string | null;
+  private featureKey: string | null;
   private selectedBackdropKey: string | null;
   private colorRamp: ColorRamp;
   private colorMapRangeMin: number;
@@ -191,7 +191,7 @@ export default class ColorizeCanvas {
 
     this.dataset = null;
     this.canvasResolution = null;
-    this.featureName = null;
+    this.featureKey = null;
     this.selectedBackdropKey = null;
     this.colorRamp = new ColorRamp(["black"]);
     this.categoricalPalette = new ColorRamp(["black"]);
@@ -448,12 +448,12 @@ export default class ColorizeCanvas {
     this.setUniform("highlightedId", this.track.getIdAtTime(this.currentFrame));
   }
 
-  setFeature(name: string): void {
-    if (!this.dataset?.hasFeature(name)) {
+  setFeatureKey(key: string): void {
+    if (!this.dataset?.hasFeatureKey(key)) {
       return;
     }
-    const featureData = this.dataset.getFeatureData(name)!;
-    this.featureName = name;
+    const featureData = this.dataset.getFeatureData(key)!;
+    this.featureKey = key;
     this.setUniform("featureData", featureData.tex);
     this.render(); // re-render necessary because map range may have changed
   }
@@ -467,10 +467,10 @@ export default class ColorizeCanvas {
   }
 
   resetColorMapRange(): void {
-    if (!this.featureName) {
+    if (!this.featureKey) {
       return;
     }
-    const featureData = this.dataset?.getFeatureData(this.featureName);
+    const featureData = this.dataset?.getFeatureData(this.featureKey);
     if (featureData) {
       this.colorMapRangeMin = featureData.min;
       this.colorMapRangeMax = featureData.max;
@@ -575,7 +575,7 @@ export default class ColorizeCanvas {
    * selected feature.
    */
   updateRamp(): void {
-    if (this.featureName && this.dataset?.isFeatureCategorical(this.featureName)) {
+    if (this.featureKey && this.dataset?.isFeatureCategorical(this.featureKey)) {
       this.setUniform("colorRamp", this.categoricalPalette.texture);
       this.setUniform("featureColorRampMin", 0);
       this.setUniform("featureColorRampMax", MAX_FEATURE_CATEGORIES - 1);

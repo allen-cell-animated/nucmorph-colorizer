@@ -30,7 +30,7 @@ type PlotTabProps = {
   findTrack: (trackId: number, seekToFrame?: boolean) => void;
   currentFrame: number;
   dataset: Dataset | null;
-  featureName: string;
+  featureKey: string;
   selectedTrack: Track | null;
   disabled: boolean;
 };
@@ -66,7 +66,7 @@ export default function PlotTab(props: PlotTabProps): ReactElement {
       <PlotWrapper
         frame={props.currentFrame}
         dataset={props.dataset}
-        featureName={props.featureName}
+        featureKey={props.featureKey}
         selectedTrack={props.selectedTrack}
       />
     </>

@@ -5,7 +5,7 @@ import { Dataset, Plotting, Track } from "../colorizer";
 type PlotWrapperProps = {
   frame: number;
   dataset: Dataset | null;
-  featureName: string;
+  featureKey: string;
   selectedTrack: Track | null;
 };
 const defaultProps: Partial<PlotWrapperProps> = {};
@@ -44,9 +44,9 @@ export default function PlotWrapper(inputProps: PlotWrapperProps): ReactElement 
   useMemo(() => {
     plot?.removePlot();
     if (props.selectedTrack) {
-      plot?.plot(props.selectedTrack, props.featureName, props.frame);
+      plot?.plot(props.selectedTrack, props.featureKey, props.frame);
     }
-  }, [props.selectedTrack, props.featureName]);
+  }, [props.selectedTrack, props.featureKey]);
 
   const updatePlotSize = (): void => {
     if (!plotDivRef.current) {

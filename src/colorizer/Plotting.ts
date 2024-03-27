@@ -54,11 +54,11 @@ export default class Plotting {
     this.dataset = dataset;
   }
 
-  plot(track: Track, feature: string, time: number): void {
+  plot(track: Track, featureKey: string, time: number): void {
     if (!this.dataset) {
       return;
     }
-    const plotinfo = this.dataset?.buildTrackFeaturePlot(track, feature);
+    const plotinfo = this.dataset?.buildTrackFeaturePlot(track, featureKey);
     this.trace = {
       x: plotinfo.domain,
       y: plotinfo.range,
@@ -67,7 +67,7 @@ export default class Plotting {
 
     const layout: Partial<Plotly.Layout> = {
       yaxis: {
-        title: this.dataset.getFeatureNameWithUnits(feature),
+        title: this.dataset.getFeatureNameWithUnits(featureKey),
       },
       shapes: [
         {

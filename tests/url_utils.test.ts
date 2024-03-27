@@ -125,18 +125,18 @@ describe("Loading + saving from URL query strings", () => {
       track: 25,
       time: 14,
       thresholds: [
-        { featureName: "f1", units: "m", type: ThresholdType.NUMERIC, min: 0, max: 0 },
-        { featureName: "f2", units: "um", type: ThresholdType.NUMERIC, min: NaN, max: NaN },
-        { featureName: "f3", units: "km", type: ThresholdType.NUMERIC, min: 0, max: 1 },
-        { featureName: "f4", units: "mm", type: ThresholdType.NUMERIC, min: 0.501, max: 1000.485 },
+        { featureKey: "f1", units: "m", type: ThresholdType.NUMERIC, min: 0, max: 0 },
+        { featureKey: "f2", units: "um", type: ThresholdType.NUMERIC, min: NaN, max: NaN },
+        { featureKey: "f3", units: "km", type: ThresholdType.NUMERIC, min: 0, max: 1 },
+        { featureKey: "f4", units: "mm", type: ThresholdType.NUMERIC, min: 0.501, max: 1000.485 },
         {
-          featureName: "f5",
+          featureKey: "f5",
           units: "",
           type: ThresholdType.CATEGORICAL,
           enabledCategories: [true, true, true, true, true, true, true, true, true, true, true, true],
         },
         {
-          featureName: "f6",
+          featureKey: "f6",
           units: "",
           type: ThresholdType.CATEGORICAL,
           enabledCategories: [true, false, false, false, true, false, false, false, false, false, false, false],
@@ -177,11 +177,11 @@ describe("Loading + saving from URL query strings", () => {
   it("Handles feature threshold names with nonstandard characters", () => {
     const originalParams: Partial<UrlParams> = {
       thresholds: [
-        { featureName: "feature,,,", units: ",m,", type: ThresholdType.NUMERIC, min: 0, max: 1 },
-        { featureName: "(feature)", units: "(m)", type: ThresholdType.NUMERIC, min: 0, max: 1 },
-        { featureName: "feat:ure", units: ":m", type: ThresholdType.NUMERIC, min: 0, max: 1 },
+        { featureKey: "feature,,,", units: ",m,", type: ThresholdType.NUMERIC, min: 0, max: 1 },
+        { featureKey: "(feature)", units: "(m)", type: ThresholdType.NUMERIC, min: 0, max: 1 },
+        { featureKey: "feat:ure", units: ":m", type: ThresholdType.NUMERIC, min: 0, max: 1 },
         {
-          featureName: "0.0%",
+          featureKey: "0.0%",
           units: "m&m's",
           type: ThresholdType.CATEGORICAL,
           enabledCategories: padCategories([true, false, false]),
@@ -200,9 +200,9 @@ describe("Loading + saving from URL query strings", () => {
   it("Enforces min/max on range and thresholds", () => {
     const originalParams: Partial<UrlParams> = {
       thresholds: [
-        { featureName: "feature1", units: "m", type: ThresholdType.NUMERIC, min: 1, max: 0 },
-        { featureName: "feature2", units: "m", type: ThresholdType.NUMERIC, min: 12, max: -34 },
-        { featureName: "feature3", units: "m", type: ThresholdType.NUMERIC, min: 0.5, max: 0.25 },
+        { featureKey: "feature1", units: "m", type: ThresholdType.NUMERIC, min: 1, max: 0 },
+        { featureKey: "feature2", units: "m", type: ThresholdType.NUMERIC, min: 12, max: -34 },
+        { featureKey: "feature3", units: "m", type: ThresholdType.NUMERIC, min: 0.5, max: 0.25 },
       ],
       range: [1, 0],
     };
@@ -214,16 +214,16 @@ describe("Loading + saving from URL query strings", () => {
     const parsedParams = loadFromUrlSearchParams(new URLSearchParams(queryString));
 
     expect(parsedParams.thresholds).deep.equals([
-      { featureName: "feature1", units: "m", type: ThresholdType.NUMERIC, min: 0, max: 1 },
-      { featureName: "feature2", units: "m", type: ThresholdType.NUMERIC, min: -34, max: 12 },
-      { featureName: "feature3", units: "m", type: ThresholdType.NUMERIC, min: 0.25, max: 0.5 },
+      { featureKey: "feature1", units: "m", type: ThresholdType.NUMERIC, min: 0, max: 1 },
+      { featureKey: "feature2", units: "m", type: ThresholdType.NUMERIC, min: -34, max: 12 },
+      { featureKey: "feature3", units: "m", type: ThresholdType.NUMERIC, min: 0.25, max: 0.5 },
     ]);
     expect(parsedParams.range).deep.equals([0, 1]);
   });
 
   it("Handles empty feature thresholds", () => {
     const originalParams: Partial<UrlParams> = {
-      thresholds: [{ featureName: "feature1", units: "", type: ThresholdType.NUMERIC, min: 0, max: 1 }],
+      thresholds: [{ featureKey: "feature1", units: "", type: ThresholdType.NUMERIC, min: 0, max: 1 }],
     };
     const queryString = paramsToUrlQueryString(originalParams);
     const expectedQueryString = "?filters=feature1%3A%3A0%3A1";
@@ -238,7 +238,7 @@ describe("Loading + saving from URL query strings", () => {
       time: 0,
       track: 0,
       range: [0, 0],
-      thresholds: [{ featureName: "feature", units: "", type: ThresholdType.NUMERIC, min: 0, max: 0 }],
+      thresholds: [{ featureKey: "feature", units: "", type: ThresholdType.NUMERIC, min: 0, max: 0 }],
     };
     const queryString = paramsToUrlQueryString(originalParams);
     const expectedQueryString = "?track=0&t=0&filters=feature%3A%3A0%3A0&range=0%2C0";
@@ -250,7 +250,7 @@ describe("Loading + saving from URL query strings", () => {
 
   it("Handles less than the maximum expected categories", () => {
     const originalParams: Partial<UrlParams> = {
-      thresholds: [{ featureName: "feature", units: "", type: ThresholdType.CATEGORICAL, enabledCategories: [true] }],
+      thresholds: [{ featureKey: "feature", units: "", type: ThresholdType.CATEGORICAL, enabledCategories: [true] }],
     };
     const queryString = paramsToUrlQueryString(originalParams);
     const expectedQueryString = "?filters=feature%3A%3A1";
@@ -259,7 +259,7 @@ describe("Loading + saving from URL query strings", () => {
     const parsedParams = loadFromUrlSearchParams(new URLSearchParams(queryString));
     expect(parsedParams.thresholds).deep.equals([
       {
-        featureName: "feature",
+        featureKey: "feature",
         units: "",
         type: ThresholdType.CATEGORICAL,
         enabledCategories: padCategories([true]),
@@ -272,7 +272,7 @@ describe("Loading + saving from URL query strings", () => {
     thresholds.push(true); // Add an extra threshold. This should be ignored
     const originalParams: Partial<UrlParams> = {
       thresholds: [
-        { featureName: "feature", units: "", type: ThresholdType.CATEGORICAL, enabledCategories: thresholds },
+        { featureKey: "feature", units: "", type: ThresholdType.CATEGORICAL, enabledCategories: thresholds },
       ],
     };
     const queryString = paramsToUrlQueryString(originalParams);
@@ -282,7 +282,7 @@ describe("Loading + saving from URL query strings", () => {
     const parsedParams = loadFromUrlSearchParams(new URLSearchParams(queryString));
     expect(parsedParams.thresholds).deep.equals([
       {
-        featureName: "feature",
+        featureKey: "feature",
         units: "",
         type: ThresholdType.CATEGORICAL,
         enabledCategories: padCategories([true, true]),

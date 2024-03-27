@@ -30,7 +30,7 @@ import IconButton from "../IconButton";
 import LoadingSpinner from "../LoadingSpinner";
 
 /** Extra feature that's added to the dropdowns representing the frame number. */
-const TIME_FEATURE = { key: "scatterplot_time", name: "Time" };
+const TIME_FEATURE = { key: "scatterplot_time", label: "Time" };
 // TODO: Translate into seconds/minutes/hours for datasets where frame duration is known?
 
 const PLOTLY_CONFIG: Partial<Plotly.Config> = {
@@ -55,7 +55,7 @@ type ScatterPlotTabProps = {
   isVisible: boolean;
   isPlaying: boolean;
 
-  selectedFeatureName: string | null;
+  selectedFeatureKey: string | null;
   colorRampMin: number;
   colorRampMax: number;
   colorRamp: ColorRamp;
@@ -97,8 +97,8 @@ export default memo(function ScatterPlotTab(props: ScatterPlotTabProps): ReactEl
       [],
       {
         autosize: true,
-        xaxis: { title: xAxisFeatureName || "" },
-        yaxis: { title: yAxisFeatureName || "" },
+        xaxis: { title: xAxisFeatureKey || "" },
+        yaxis: { title: yAxisFeatureKey || "" },
       },
       PLOTLY_CONFIG
     ).then((plot) => {
@@ -116,7 +116,7 @@ export default memo(function ScatterPlotTab(props: ScatterPlotTabProps): ReactEl
     currentFrame,
     colorRamp,
     categoricalPalette,
-    selectedFeatureName,
+    selectedFeatureKey,
     isPlaying,
     isVisible,
     inRangeIds,
@@ -144,7 +144,7 @@ export default memo(function ScatterPlotTab(props: ScatterPlotTabProps): ReactEl
       });
     }
   }, [props.scatterPlotConfig]);
-  const { xAxis: xAxisFeatureName, yAxis: yAxisFeatureName, rangeType } = scatterConfig;
+  const { xAxis: xAxisFeatureKey, yAxis: yAxisFeatureKey, rangeType } = scatterConfig;
 
   const isDebouncePending =
     props.scatterPlotConfig !== scatterConfig ||
@@ -189,27 +189,27 @@ export default memo(function ScatterPlotTab(props: ScatterPlotTabProps): ReactEl
   //////////////////////////////////
 
   /** Retrieve feature data, if it exists. Accounts for the artificially-added time feature. */
-  const getData = (featureName: string | null, dataset: Dataset | null): Uint32Array | Float32Array | undefined => {
-    if (featureName === null || dataset === null) {
+  const getData = (featureKey: string | null, dataset: Dataset | null): Uint32Array | Float32Array | undefined => {
+    if (featureKey === null || dataset === null) {
       return undefined;
     }
-    if (featureName === TIME_FEATURE.name) {
+    if (featureKey === TIME_FEATURE.key) {
       return dataset.times || undefined;
     }
-    return dataset.getFeatureData(featureName)?.data;
+    return dataset.getFeatureData(featureKey)?.data;
   };
 
   // Track last rendered props + state to make optimizations on re-renders
   type LastRenderedState = {
     rangeType: PlotRangeType;
-    xAxisFeatureName: string | null;
-    yAxisFeatureName: string | null;
+    xAxisFeatureKey: string | null;
+    yAxisFeatureKey: string | null;
   } & ScatterPlotTabProps;
 
   const lastRenderedState = useRef<LastRenderedState>({
     rangeType: DEFAULT_RANGE_TYPE,
-    xAxisFeatureName: null,
-    yAxisFeatureName: null,
+    xAxisFeatureKey: null,
+    yAxisFeatureKey: null,
     ...props,
   });
 
@@ -219,7 +219,7 @@ export default memo(function ScatterPlotTab(props: ScatterPlotTabProps): ReactEl
     // This prevents clicking on a new track from resetting the plot view.
     const lastState = lastRenderedState.current;
     const haveAxesChanged =
-      lastState.xAxisFeatureName !== xAxisFeatureName || lastState.yAxisFeatureName !== yAxisFeatureName;
+      lastState.xAxisFeatureKey !== xAxisFeatureKey || lastState.yAxisFeatureKey !== yAxisFeatureKey;
     const hasRangeChanged = lastState.rangeType !== rangeType;
     const hasDatasetChanged = lastState.dataset !== dataset;
     return haveAxesChanged || hasRangeChanged || hasDatasetChanged;
@@ -305,7 +305,7 @@ export default memo(function ScatterPlotTab(props: ScatterPlotTabProps): ReactEl
   /**
    * Creates the scatterplot and histogram axes for a given feature. Normalizes for dataset min/max to
    * prevents axes from jumping during time or track playback.
-   * @param featureName Name of the feature to generate layouts for.
+   * @param featureKey Name of the feature to generate layouts for.
    * @param histogramTrace The default histogram trace configuration.
    * @returns An object with the following keys:
    *  - `scatterPlotAxis`: Layout for the scatter plot axis.
@@ -313,7 +313,7 @@ export default memo(function ScatterPlotTab(props: ScatterPlotTabProps): ReactEl
    *  - `histogramTrace`: A copy of the histogram trace, with potentially updated bin sizes.
    */
   const getAxisLayoutsFromRange = (
-    featureName: string,
+    featureKey: string,
     histogramTrace: Partial<PlotData>
   ): {
     scatterPlotAxis: Partial<Plotly.LayoutAxis>;
@@ -333,16 +333,16 @@ export default memo(function ScatterPlotTab(props: ScatterPlotTabProps): ReactEl
     };
     const newHistogramTrace = { ...histogramTrace };
 
-    let min = dataset?.getFeatureData(featureName)?.min || 0;
-    let max = dataset?.getFeatureData(featureName)?.max || 0;
+    let min = dataset?.getFeatureData(featureKey)?.min || 0;
+    let max = dataset?.getFeatureData(featureKey)?.max || 0;
 
     // Special case for time feature, which isn't in the dataset
-    if (featureName === TIME_FEATURE.name) {
+    if (featureKey === TIME_FEATURE.key) {
       min = 0;
       max = dataset?.numberOfFrames || 0;
     }
 
-    if (dataset && dataset.isFeatureCategorical(featureName)) {
+    if (dataset && dataset.isFeatureCategorical(featureKey)) {
       // Add extra padding for categories so they're nicely centered
       min -= 0.5;
       max += 0.5;
@@ -358,9 +358,9 @@ export default memo(function ScatterPlotTab(props: ScatterPlotTabProps): ReactEl
     // TODO: Add special handling for integer features once implemented, so their histograms use reasonable
     // bin sizes to prevent jumping.
 
-    if (dataset && dataset.isFeatureCategorical(featureName)) {
+    if (dataset && dataset.isFeatureCategorical(featureKey)) {
       // Create custom tick marks for the categories
-      const categories = dataset.getFeatureCategories(featureName) || [];
+      const categories = dataset.getFeatureCategories(featureKey) || [];
       scatterPlotAxis = {
         ...scatterPlotAxis,
         tickmode: "array",
@@ -382,11 +382,11 @@ export default memo(function ScatterPlotTab(props: ScatterPlotTabProps): ReactEl
   /**
    * VERY roughly estimate the max width in pixels needed for a categorical feature.
    */
-  const estimateTextWidthPxForCategories = (featureName: string): number => {
-    if (featureName === null || !dataset?.isFeatureCategorical(featureName)) {
+  const estimateTextWidthPxForCategories = (featureKey: string): number => {
+    if (featureKey === null || !dataset?.isFeatureCategorical(featureKey)) {
       return 0;
     }
-    const categories = dataset.getFeatureCategories(featureName) || [];
+    const categories = dataset.getFeatureCategories(featureKey) || [];
     return (
       categories.reduce((_prev: any, val: string, acc: number) => {
         return Math.max(val.length, acc);
@@ -416,16 +416,16 @@ export default memo(function ScatterPlotTab(props: ScatterPlotTabProps): ReactEl
     markerConfig: Partial<PlotMarker> & { outliers?: Partial<PlotMarker>; outOfRange?: Partial<PlotMarker> } = {},
     overrideColor?: Color
   ): Partial<PlotData>[] => {
-    if (selectedFeatureName === null || dataset === null || !xAxisFeatureName || !yAxisFeatureName) {
+    if (selectedFeatureKey === null || dataset === null || !xAxisFeatureKey || !yAxisFeatureKey) {
       return [];
     }
-    const featureData = dataset.getFeatureData(selectedFeatureName);
+    const featureData = dataset.getFeatureData(selectedFeatureKey);
     if (!featureData) {
       return [];
     }
 
     // Generate colors
-    const categories = dataset.getFeatureCategories(selectedFeatureName);
+    const categories = dataset.getFeatureCategories(selectedFeatureKey);
     const isCategorical = categories !== null;
     const usingOverrideColor = markerConfig.color || overrideColor;
     overrideColor = overrideColor || new Color(markerConfig.color as ColorRepresentation);
@@ -547,7 +547,7 @@ export default memo(function ScatterPlotTab(props: ScatterPlotTabProps): ReactEl
             size: 4,
             ...bucket.marker,
           },
-          hovertemplate: getHoverTemplate(dataset, xAxisFeatureName, yAxisFeatureName),
+          hovertemplate: getHoverTemplate(dataset, xAxisFeatureKey, yAxisFeatureKey),
         };
       });
 
@@ -560,8 +560,8 @@ export default memo(function ScatterPlotTab(props: ScatterPlotTabProps): ReactEl
 
   const plotDependencies = [
     dataset,
-    xAxisFeatureName,
-    yAxisFeatureName,
+    xAxisFeatureKey,
+    yAxisFeatureKey,
     rangeType,
     currentFrame,
     selectedTrack,
@@ -569,7 +569,7 @@ export default memo(function ScatterPlotTab(props: ScatterPlotTabProps): ReactEl
     isPlaying,
     plotDivRef.current,
     viewerConfig,
-    selectedFeatureName,
+    selectedFeatureKey,
     colorRampMin,
     colorRampMax,
     colorRamp,
@@ -578,10 +578,10 @@ export default memo(function ScatterPlotTab(props: ScatterPlotTabProps): ReactEl
   ];
 
   const renderPlot = (forceRelayout: boolean = false): void => {
-    const rawXData = getData(xAxisFeatureName, dataset);
-    const rawYData = getData(yAxisFeatureName, dataset);
+    const rawXData = getData(xAxisFeatureKey, dataset);
+    const rawYData = getData(yAxisFeatureKey, dataset);
 
-    if (!rawXData || !rawYData || !xAxisFeatureName || !yAxisFeatureName || !dataset || !plotDivRef.current) {
+    if (!rawXData || !rawYData || !xAxisFeatureKey || !yAxisFeatureKey || !dataset || !plotDivRef.current) {
       clearPlotAndStopRender();
       return;
     }
@@ -600,7 +600,7 @@ export default memo(function ScatterPlotTab(props: ScatterPlotTabProps): ReactEl
       markerBaseColor = new Color("#dddddd");
     }
 
-    const isUsingTime = xAxisFeatureName === TIME_FEATURE.name || yAxisFeatureName === TIME_FEATURE.name;
+    const isUsingTime = xAxisFeatureKey === TIME_FEATURE.key || yAxisFeatureKey === TIME_FEATURE.key;
 
     // Configure traces
     const traces = colorizeScatterplotPoints(xData, yData, objectIds, trackIds, {}, markerBaseColor);
@@ -632,7 +632,7 @@ export default memo(function ScatterPlotTab(props: ScatterPlotTabProps): ReactEl
     if (trackData && rangeType !== PlotRangeType.CURRENT_FRAME) {
       // Render an extra trace for lines connecting the points in the current track when time is a feature.
       if (isUsingTime) {
-        const hovertemplate = getHoverTemplate(dataset, xAxisFeatureName, yAxisFeatureName);
+        const hovertemplate = getHoverTemplate(dataset, xAxisFeatureKey, yAxisFeatureKey);
         traces.push(
           makeLineTrace(trackData.xData, trackData.yData, trackData.objectIds, trackData.trackIds, hovertemplate)
         );
@@ -673,22 +673,22 @@ export default memo(function ScatterPlotTab(props: ScatterPlotTabProps): ReactEl
 
     // Format axes
     const { scatterPlotAxis: scatterPlotXAxis, histogramAxis: histogramXAxis } = getAxisLayoutsFromRange(
-      xAxisFeatureName,
+      xAxisFeatureKey,
       xHistogram
     );
     const { scatterPlotAxis: scatterPlotYAxis, histogramAxis: histogramYAxis } = getAxisLayoutsFromRange(
-      yAxisFeatureName,
+      yAxisFeatureKey,
       yHistogram
     );
 
-    scatterPlotXAxis.title = dataset.getFeatureNameWithUnits(xAxisFeatureName || "");
+    scatterPlotXAxis.title = dataset.getFeatureNameWithUnits(xAxisFeatureKey || "");
     // Due to limited space in the Y-axis, hide categorical feature names.
-    scatterPlotYAxis.title = dataset.isFeatureCategorical(yAxisFeatureName)
+    scatterPlotYAxis.title = dataset.isFeatureCategorical(yAxisFeatureKey)
       ? ""
-      : dataset.getFeatureNameWithUnits(yAxisFeatureName || "");
+      : dataset.getFeatureNameWithUnits(yAxisFeatureKey || "");
 
     // Add extra margin for categorical feature labels on the Y axis.
-    const leftMarginPx = Math.max(60, estimateTextWidthPxForCategories(yAxisFeatureName));
+    const leftMarginPx = Math.max(60, estimateTextWidthPxForCategories(yAxisFeatureKey));
     const layout = {
       autosize: true,
       showlegend: false,
@@ -719,8 +719,8 @@ export default memo(function ScatterPlotTab(props: ScatterPlotTabProps): ReactEl
     Plotly.react(plotDivRef.current, traces, layout, PLOTLY_CONFIG).then(() => {
       setIsRendering(false);
       lastRenderedState.current = {
-        xAxisFeatureName,
-        yAxisFeatureName,
+        xAxisFeatureKey,
+        yAxisFeatureKey,
         rangeType,
         ...props,
       };
@@ -742,17 +742,17 @@ export default memo(function ScatterPlotTab(props: ScatterPlotTabProps): ReactEl
   //////////////////////////////////
 
   const makeControlBar = (): ReactElement => {
-    const featureNames = dataset?.featureNames || [];
-    const menuItems: MenuItemType[] = featureNames.map((name: string) => {
-      return { key: name, label: dataset?.getFeatureNameWithUnits(name) };
+    const featureKeys = dataset ? dataset.featureKeys : [];
+    const menuItems: MenuItemType[] = featureKeys.map((key: string) => {
+      return { key, label: dataset?.getFeatureNameWithUnits(key) };
     });
-    menuItems.push({ key: TIME_FEATURE.name, label: TIME_FEATURE.name });
+    menuItems.push(TIME_FEATURE);
 
     return (
       <FlexRowAlignCenter $gap={6} style={{ flexWrap: "wrap" }}>
         <SelectionDropdown
           label={"X"}
-          selected={xAxisFeatureName || ""}
+          selected={xAxisFeatureKey || ""}
           items={menuItems}
           onChange={(key) => props.updateScatterPlotConfig({ xAxis: key })}
         />
@@ -760,8 +760,8 @@ export default memo(function ScatterPlotTab(props: ScatterPlotTabProps): ReactEl
           <IconButton
             onClick={() => {
               props.updateScatterPlotConfig({
-                xAxis: yAxisFeatureName,
-                yAxis: xAxisFeatureName,
+                xAxis: yAxisFeatureKey,
+                yAxis: xAxisFeatureKey,
               });
             }}
             type="link"
@@ -771,7 +771,7 @@ export default memo(function ScatterPlotTab(props: ScatterPlotTabProps): ReactEl
         </Tooltip>
         <SelectionDropdown
           label={"Y"}
-          selected={yAxisFeatureName || ""}
+          selected={yAxisFeatureKey || ""}
           items={menuItems}
           onChange={(key) => props.updateScatterPlotConfig({ yAxis: key })}
         />

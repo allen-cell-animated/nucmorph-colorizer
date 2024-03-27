@@ -1,5 +1,6 @@
 // Defines types for working with dataset manifests, and methods for
 // updating manifests from one version to another.
+import { getKeyFromName } from "./data_utils";
 import { Spread } from "./type_utils";
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -33,7 +34,7 @@ export type ManifestFileMetadata = Spread<ManifestFileMetadataV1_1_0>;
 // eslint-disable-next-line @typescript-eslint/naming-convention
 type ManifestFileV0_0_0 = {
   frames: string[];
-  /** Map from feature name to relative path */
+  /** Deprecated; Map from feature name to relative path. */
   features: Record<string, string>;
   /** Deprecated; avoid using in new datasets. Instead, use the new `FeatureMetadata` spec. */
   featureMetadata?: Record<
@@ -57,6 +58,7 @@ type ManifestFileV0_0_0 = {
 // eslint-disable-next-line @typescript-eslint/naming-convention
 type ManifestFileV1_0_0 = Omit<ManifestFileV0_0_0, "features" | "featureMetadata" | "metadata"> & {
   features: {
+    key?: string;
     name: string;
     data: string;
     units?: string;
@@ -104,6 +106,7 @@ export const updateManifestVersion = (manifest: AnyManifestFile): ManifestFile =
       const featureMetadata = manifest.featureMetadata?.[featureName];
       features.push({
         name: featureName,
+        key: getKeyFromName(featureName),
         data: featurePath,
         units: featureMetadata?.units || undefined,
         type: featureMetadata?.type || undefined,
@@ -111,10 +114,11 @@ export const updateManifestVersion = (manifest: AnyManifestFile): ManifestFile =
       });
     }
 
-    return {
+    manifest = {
       ...manifest,
       features,
     };
   }
+
   return manifest;
 };

@@ -28,7 +28,7 @@ import { packDataTexture } from "./utils/texture_utils";
 
 import CanvasOverlay from "./CanvasUIOverlay";
 import ColorRamp from "./ColorRamp";
-import Dataset from "./Dataset";
+import Dataset, { FeatureData } from "./Dataset";
 import Track from "./Track";
 
 import pickFragmentShader from "./shaders/cellId_RGBA8U.frag";
@@ -153,7 +153,7 @@ export default class ColorizeCanvas {
   private points: Float32Array;
   private canvasResolution: Vector2 | null;
 
-  private featureKey: string | null;
+  private featureData: FeatureData | null;
   private selectedBackdropKey: string | null;
   private colorRamp: ColorRamp;
   private colorMapRangeMin: number;
@@ -215,7 +215,7 @@ export default class ColorizeCanvas {
 
     this.dataset = null;
     this.canvasResolution = null;
-    this.featureKey = null;
+    this.featureData = null;
     this.selectedBackdropKey = null;
     this.colorRamp = new ColorRamp(["black"]);
     this.categoricalPalette = new ColorRamp(["black"]);
@@ -524,12 +524,8 @@ export default class ColorizeCanvas {
     this.setUniform("highlightedId", this.track.getIdAtTime(this.currentFrame));
   }
 
-  setFeatureKey(key: string): void {
-    if (!this.dataset?.hasFeatureKey(key)) {
-      return;
-    }
-    const featureData = this.dataset.getFeatureData(key)!;
-    this.featureKey = key;
+  setFeature(featureData: FeatureData): void {
+    this.featureData = featureData;
     this.setUniform("featureData", featureData.tex);
     this.render(); // re-render necessary because map range may have changed
   }
@@ -543,13 +539,9 @@ export default class ColorizeCanvas {
   }
 
   resetColorMapRange(): void {
-    if (!this.featureKey) {
-      return;
-    }
-    const featureData = this.dataset?.getFeatureData(this.featureKey);
-    if (featureData) {
-      this.colorMapRangeMin = featureData.min;
-      this.colorMapRangeMax = featureData.max;
+    if (this.featureData) {
+      this.colorMapRangeMin = this.featureData.min;
+      this.colorMapRangeMax = this.featureData.max;
       this.setUniform("featureColorRampMin", this.colorMapRangeMin);
       this.setUniform("featureColorRampMax", this.colorMapRangeMax);
     }
@@ -682,7 +674,7 @@ export default class ColorizeCanvas {
    * selected feature.
    */
   updateRamp(): void {
-    if (this.featureKey && this.dataset?.isFeatureCategorical(this.featureKey)) {
+    if (this.featureData && this.dataset?.isFeatureCategorical(this.featureData.key)) {
       this.setUniform("colorRamp", this.categoricalPalette.texture);
       this.setUniform("featureColorRampMin", 0);
       this.setUniform("featureColorRampMax", MAX_FEATURE_CATEGORIES - 1);

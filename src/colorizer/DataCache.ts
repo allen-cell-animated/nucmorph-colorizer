@@ -1,4 +1,4 @@
-type DisposableValue = {
+export type DisposableValue = {
   dispose?: () => void;
 };
 
@@ -62,7 +62,7 @@ export default class DataCache<E extends DisposableValue> {
     this.last = this.last.next;
   }
 
-  /** Places a new/disconnected entry at the front of the list */
+  /** Places an entry at the front of the list */
   private setNewEntryAsFirst(entry: CacheEntry<E>): void {
     if (this.first) {
       this.first.next = entry;

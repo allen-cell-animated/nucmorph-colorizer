@@ -6,6 +6,7 @@ import styled from "styled-components";
 import { Dataset, Track } from "../../colorizer";
 import { FlexRowAlignCenter, NoSpinnerContainer } from "../../styles/utils";
 
+import { FeatureData } from "../../colorizer/Dataset";
 import IconButton from "../IconButton";
 import PlotWrapper from "../PlotWrapper";
 
@@ -30,7 +31,7 @@ type PlotTabProps = {
   findTrack: (trackId: number, seekToFrame?: boolean) => void;
   currentFrame: number;
   dataset: Dataset | null;
-  featureKey: string;
+  featureData: FeatureData | null;
   selectedTrack: Track | null;
   disabled: boolean;
 };
@@ -69,7 +70,7 @@ export default function PlotTab(props: PlotTabProps): ReactElement {
       <PlotWrapper
         frame={props.currentFrame}
         dataset={props.dataset}
-        featureKey={props.featureKey}
+        featureData={props.featureData}
         selectedTrack={props.selectedTrack}
       />
     </>

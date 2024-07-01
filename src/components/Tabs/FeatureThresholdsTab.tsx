@@ -1,6 +1,6 @@
 import { CloseOutlined, FilterOutlined, SearchOutlined } from "@ant-design/icons";
 import { Checkbox, List, Select } from "antd";
-import React, { ReactElement, ReactNode, useMemo, useRef, useState } from "react";
+import React, { ReactElement, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import styled, { css } from "styled-components";
 import { Color } from "three";
 
@@ -14,7 +14,7 @@ import {
   NumericFeatureThreshold,
   ThresholdType,
 } from "../../colorizer/types";
-import { thresholdMatchFinder } from "../../colorizer/utils/data_utils";
+import { isThresholdInDataset, thresholdMatchFinder } from "../../colorizer/utils/data_utils";
 import { ScrollShadowContainer, useScrollShadow } from "../../colorizer/utils/react_utils";
 import { MAX_FEATURE_CATEGORIES } from "../../constants";
 import { FlexColumn } from "../../styles/utils";
@@ -145,19 +145,20 @@ export default function FeatureThresholdsTab(inputProps: FeatureThresholdsTabPro
     // This is done as a useMemo and not when the feature is added, in case we switch to another dataset
     // that has the same feature/unit but different min/max values. That way, our saved min/max bounds
     // reflect the last known good values.
-    for (const threshold of props.featureThresholds) {
-      const featureData = props.dataset?.getFeatureData(threshold.featureKey);
+    props.featureThresholds.forEach(async (threshold) => {
+      const featureData = await props.dataset?.getFeatureData(threshold.featureKey);
       if (featureData && featureData.unit === threshold.unit && featureData.type !== FeatureType.CATEGORICAL) {
         featureMinMaxBoundsFallback.current.set(thresholdToKey(threshold), [featureData.min, featureData.max]);
       }
-    }
+    });
   }, [props.dataset, props.featureThresholds]);
 
   ////// EVENT HANDLERS ///////////////////
 
   /** Handle the user selecting new features from the Select dropdown. */
-  const onSelect = (featureKey: string): void => {
-    const featureData = props.dataset?.getFeatureData(featureKey);
+  const onSelect = async (featureKey: string): Promise<void> => {
+    // TODO: Do optimistic loading here? Show placeholder while data is loading
+    const featureData = await props.dataset?.getFeatureData(featureKey);
     const newThresholds = [...props.featureThresholds];
     if (featureData && !props.dataset?.isFeatureCategorical(featureKey)) {
       // Continuous/discrete feature
@@ -181,9 +182,9 @@ export default function FeatureThresholdsTab(inputProps: FeatureThresholdsTabPro
   };
 
   /** Handle the user removing features from the Select dropdown. */
-  const onDeselect = (featureKey: string): void => {
+  const onDeselect = async (featureKey: string): Promise<void> => {
     // Find the exact match for the threshold and remove it
-    const featureData = props.dataset?.getFeatureData(featureKey);
+    const featureData = await props.dataset?.getFeatureData(featureKey);
     const newThresholds = [...props.featureThresholds];
     if (featureData) {
       const index = props.featureThresholds.findIndex(thresholdMatchFinder(featureKey, featureData.unit));
@@ -236,22 +237,22 @@ export default function FeatureThresholdsTab(inputProps: FeatureThresholdsTabPro
   };
 
   ////// RENDERING ///////////////////
+  const [renderedListItems, setRenderedListItems] = useState([] as ReactNode[]);
+
   // The Select dropdown should ONLY show features that are currently present in the dataset.
   const featureOptions =
     props.dataset?.featureKeys.map((key) => ({
       label: props.dataset?.getFeatureNameWithUnits(key),
       value: key,
     })) || [];
-  // Filter out thresholds that no longer match the dataset (feature and/or unit), so we only
-  // show selections that are actually valid.
-  const thresholdsInDataset = props.featureThresholds.filter((t) => {
-    const featureData = props.dataset?.getFeatureData(t.featureKey);
-    return featureData && featureData.unit === t.unit;
-  });
+
+  const thresholdsInDataset = props.featureThresholds.filter(
+    (t) => props.dataset && isThresholdInDataset(t, props.dataset)
+  );
   const selectedFeatures = thresholdsInDataset.map((t) => t.featureKey);
 
-  const renderNumericItem = (item: NumericFeatureThreshold, index: number): ReactNode => {
-    const featureData = props.dataset?.getFeatureData(item.featureKey);
+  const renderNumericItem = async (item: NumericFeatureThreshold, index: number): Promise<ReactNode> => {
+    const featureData = await props.dataset?.getFeatureData(item.featureKey);
     const disabled = featureData === undefined || featureData.unit !== item.unit;
     // If the feature is no longer in the dataset, use the saved min/max bounds.
     const savedMinMax = featureMinMaxBoundsFallback.current.get(thresholdToKey(item)) || [Number.NaN, Number.NaN];
@@ -273,8 +274,8 @@ export default function FeatureThresholdsTab(inputProps: FeatureThresholdsTabPro
     );
   };
 
-  const renderCategoricalItem = (item: CategoricalFeatureThreshold, index: number): ReactNode => {
-    const featureData = props.dataset?.getFeatureData(item.featureKey);
+  const renderCategoricalItem = async (item: CategoricalFeatureThreshold, index: number): Promise<ReactNode> => {
+    const featureData = await props.dataset?.getFeatureData(item.featureKey);
     const disabled = featureData === undefined || featureData.unit !== item.unit;
 
     const categories = featureData?.categories || [];
@@ -304,10 +305,10 @@ export default function FeatureThresholdsTab(inputProps: FeatureThresholdsTabPro
     );
   };
 
-  const renderListItems = (threshold: FeatureThreshold, index: number): ReactNode => {
+  const renderListItems = async (threshold: FeatureThreshold, index: number): Promise<ReactNode> => {
     // Thresholds are matched on both feature names and units; a threshold must match
     // both in the current dataset to be enabled and editable.
-    const featureData = props.dataset?.getFeatureData(threshold.featureKey);
+    const featureData = await props.dataset?.getFeatureData(threshold.featureKey);
     const disabled = featureData === undefined || featureData.unit !== threshold.unit;
     // TODO: This will show the internal feature key name for any filters on features not in
     // the current dataset. Show a different placeholder instead?
@@ -320,8 +321,8 @@ export default function FeatureThresholdsTab(inputProps: FeatureThresholdsTabPro
           <FeatureLabel $disabled={disabled}>{featureLabel}</FeatureLabel>
 
           {isThresholdCategorical(threshold)
-            ? renderCategoricalItem(threshold, index)
-            : renderNumericItem(threshold, index)}
+            ? await renderCategoricalItem(threshold, index)
+            : await renderNumericItem(threshold, index)}
         </div>
         <div style={{ position: "absolute", top: "10px", right: "10px" }}>
           <IconButton type="text" onClick={() => onClickedRemove(index)}>
@@ -331,6 +332,14 @@ export default function FeatureThresholdsTab(inputProps: FeatureThresholdsTabPro
       </List.Item>
     );
   };
+
+  useEffect(() => {
+    const updateListItems = async (): Promise<void> => {
+      const newItems = await Promise.all(props.featureThresholds.map(renderListItems));
+      setRenderedListItems(newItems);
+    };
+    updateListItems();
+  }, [props.featureThresholds]);
 
   return (
     <PanelContainer>
@@ -359,7 +368,7 @@ export default function FeatureThresholdsTab(inputProps: FeatureThresholdsTabPro
       <FiltersContainer>
         <FiltersContent style={{ paddingTop: 0 }} ref={scrollRef} onScroll={onScrollHandler}>
           <List
-            renderItem={renderListItems}
+            renderItem={(_, index) => renderedListItems[index] || <></>}
             dataSource={props.featureThresholds}
             locale={{
               emptyText: (

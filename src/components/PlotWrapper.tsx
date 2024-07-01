@@ -2,10 +2,12 @@ import React, { ReactElement, useEffect, useMemo, useRef, useState } from "react
 
 import { Dataset, Plotting, Track } from "../colorizer";
 
+import { FeatureData } from "../colorizer/Dataset";
+
 type PlotWrapperProps = {
   frame: number;
   dataset: Dataset | null;
-  featureKey: string;
+  featureData: FeatureData | null;
   selectedTrack: Track | null;
 };
 const defaultProps: Partial<PlotWrapperProps> = {};
@@ -43,10 +45,10 @@ export default function PlotWrapper(inputProps: PlotWrapperProps): ReactElement 
   // Handle updates to selected track and feature, updating/clearing the plot accordingly.
   useMemo(() => {
     plot?.removePlot();
-    if (props.selectedTrack) {
-      plot?.plot(props.selectedTrack, props.featureKey, props.frame);
+    if (props.selectedTrack && props.featureData) {
+      plot?.plot(props.selectedTrack, props.featureData, props.frame);
     }
-  }, [props.selectedTrack, props.featureKey]);
+  }, [props.selectedTrack, props.featureData]);
 
   const updatePlotSize = (): void => {
     if (!plotDivRef.current) {

@@ -20,7 +20,7 @@ type SelectionDropdownProps = {
   /** Text label to include with the dropdown. If null or undefined, hides the label. */
   label?: string | null;
   /** The key of the item that is currently selected. */
-  selected: string;
+  selected: string | undefined;
   /** An array of ItemType that describes the item properties (`{key, label}`),
    * or an array of strings. Dropdown items will be presented in the provided array order.
    *

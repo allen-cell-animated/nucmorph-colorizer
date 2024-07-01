@@ -76,7 +76,7 @@ describe("data_utils", () => {
         },
       ];
 
-      const newThresholds = validateThresholds(dataset, existingThresholds);
+      const newThresholds = await validateThresholds(dataset, existingThresholds);
 
       expect(newThresholds).to.deep.equal([
         {

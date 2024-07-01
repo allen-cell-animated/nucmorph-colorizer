@@ -6,9 +6,10 @@ import {
   CollectionFileMetadata,
   updateCollectionVersion,
 } from "./utils/collection_utils";
-import { DEFAULT_FETCH_TIMEOUT_MS, fetchWithTimeout, formatPath, isJson, isUrl } from "./utils/url_utils";
+import { DEFAULT_FETCH_TIMEOUT_MS, fetchWithTimeout, formatPath, isBlob, isJson, isUrl } from "./utils/url_utils";
 
 import Dataset from "./Dataset";
+import { FilePathResolver, IPathResolver, UrlPathResolver } from "./loaders/FileSystemResolver";
 
 export type CollectionData = Map<string, CollectionEntry>;
 
@@ -29,6 +30,7 @@ export type DatasetLoadResult =
  * information and paths.
  */
 export default class Collection {
+  private pathResolver: IPathResolver;
   private entries: CollectionData;
   public metadata: Partial<CollectionFileMetadata>;
   /**
@@ -44,7 +46,14 @@ export default class Collection {
    * @param url the optional string url representing the source of the Collection. `null` by default.
    * @throws an error if a `path` is not a URL to a JSON resource.
    */
-  constructor(entries: CollectionData, url: string | null = null, metadata: Partial<CollectionFileMetadata> = {}) {
+  constructor(
+    entries: CollectionData,
+    url: string | null = null,
+    metadata: Partial<CollectionFileMetadata> = {},
+    pathResolver?: IPathResolver
+  ) {
+    this.pathResolver = pathResolver || new UrlPathResolver();
+
     this.entries = entries;
     this.url = url ? Collection.formatAbsoluteCollectionPath(url) : url;
     this.metadata = metadata;
@@ -52,14 +61,14 @@ export default class Collection {
 
     // Check that all entry paths are JSON urls.
     this.entries.forEach((value, key) => {
-      if (!isJson(value.path)) {
-        throw new Error(
-          `Expected dataset '${key}' to have an absolute JSON path; Collection was provided path '${value.path}'.`
-        );
-      }
-      if (!isUrl(value.path)) {
-        throw new Error(`Expected dataset '${key}' to have a URL path; Collection was provided path '${value.path}'.`);
-      }
+      // if (!isJson(value.path)) {
+      //   throw new Error(
+      //     `Expected dataset '${key}' to have an absolute JSON path; Collection was provided path '${value.path}'.`
+      //   );
+      // }
+      // if (!isUrl(value.path)) {
+      //   throw new Error(`Expected dataset '${key}' to have a URL path; Collection was provided path '${value.path}'.`);
+      // }
     });
   }
 
@@ -134,7 +143,7 @@ export default class Collection {
     console.log(`Fetching dataset from path '${path}'`);
     // TODO: Override fetch method
     try {
-      const dataset = new Dataset(path);
+      const dataset = new Dataset(path, { pathResolver: this.pathResolver });
       await dataset.open();
       console.timeEnd("loadDataset");
       return { loaded: true, dataset: dataset };
@@ -158,9 +167,9 @@ export default class Collection {
 
   private static formatDatasetPath(datasetPath: string): string {
     datasetPath = formatPath(datasetPath);
-    if (!isUrl(datasetPath)) {
-      throw new Error(`Cannot fetch dataset '${datasetPath}' because it is not a URL.`);
-    }
+    // if (!isUrl(datasetPath)) {
+    //   throw new Error(`Cannot fetch dataset '${datasetPath}' because it is not a URL.`);
+    // }
     return isJson(datasetPath) ? datasetPath : datasetPath + "/" + DEFAULT_DATASET_FILENAME;
   }
 
@@ -221,12 +230,16 @@ export default class Collection {
    * @throws Error if the JSON could not be retrieved or is an unrecognized format.
    * @returns A new Collection object containing the retrieved data.
    */
-  public static async loadCollection(collectionParam: string, fetchMethod = fetchWithTimeout): Promise<Collection> {
+  public static async loadCollection(
+    collectionParam: string,
+    pathResolver: IPathResolver = new UrlPathResolver(),
+    fetchMethod = fetchWithTimeout
+  ): Promise<Collection> {
     const absoluteCollectionUrl = Collection.formatAbsoluteCollectionPath(collectionParam);
 
     let response;
     try {
-      response = await fetchMethod(absoluteCollectionUrl, DEFAULT_FETCH_TIMEOUT_MS);
+      response = await fetchMethod(pathResolver.resolve("", absoluteCollectionUrl)!, DEFAULT_FETCH_TIMEOUT_MS);
     } catch (e) {
       throw new Error(`Could not retrieve collections JSON data from url '${absoluteCollectionUrl}': '${e}'`);
     }
@@ -250,21 +263,16 @@ export default class Collection {
     }
     const collectionData: Map<string, CollectionEntry> = new Map();
     for (const entry of collection.datasets) {
-      collectionData.set(entry.name, entry);
+      const newEntry = entry;
+      newEntry.path = this.formatAbsoluteDatasetPath(absoluteCollectionUrl, entry.path);
+      collectionData.set(entry.name, newEntry);
     }
 
     triggerAnalyticsEvent(AnalyticsEvent.COLLECTION_LOAD, {
       collectionWriterVersion: collection.metadata?.writerVersion || "N/A",
     });
 
-    // Convert paths to absolute paths
-    collectionData.forEach((entry, key) => {
-      const newEntry = entry;
-      newEntry.path = this.formatAbsoluteDatasetPath(absoluteCollectionUrl, entry.path);
-      collectionData.set(key, newEntry);
-    });
-
-    return new Collection(collectionData, absoluteCollectionUrl, collection.metadata);
+    return new Collection(collectionData, absoluteCollectionUrl, collection.metadata, pathResolver);
   }
 
   /**
@@ -273,15 +281,18 @@ export default class Collection {
    * @returns a new Collection, where the only dataset is that of the provided `datasetUrl`.
    * The `url` field of the Collection will also be set to `null`.
    */
-  public static makeCollectionFromSingleDataset(datasetUrl: string): Collection {
+  public static makeCollectionFromSingleDataset(
+    datasetUrl: string,
+    pathResolver: IPathResolver = new UrlPathResolver()
+  ): Collection {
     // Add the default filename if the url is not a .JSON path.
     if (!isJson(datasetUrl)) {
-      datasetUrl = formatPath(datasetUrl) + "/" + DEFAULT_DATASET_FILENAME;
+      datasetUrl = formatPath(formatPath(datasetUrl) + "/" + DEFAULT_DATASET_FILENAME);
     }
     const collectionData: CollectionData = new Map([[datasetUrl, { path: datasetUrl, name: datasetUrl }]]);
 
     // TODO: Should the dummy collection copy the dataset's metadata?
-    return new Collection(collectionData, null);
+    return new Collection(collectionData, null, {}, pathResolver);
   }
 
   /**
@@ -294,7 +305,11 @@ export default class Collection {
    * @returns a Promise of a new Collection object, either loaded from a collection JSON file or
    * generated as a wrapper around a single dataset.
    */
-  public static async loadFromAmbiguousUrl(url: string, fetchMethod = fetchWithTimeout): Promise<Collection> {
+  public static async loadFromAmbiguousUrl(
+    url: string,
+    pathResolver: IPathResolver = new UrlPathResolver(),
+    fetchMethod = fetchWithTimeout
+  ): Promise<Collection> {
     // TODO: Also handle Nucmorph URLs that are pasted in? If website base URL matches, redirect?
 
     if (!isUrl(url)) {
@@ -302,12 +317,26 @@ export default class Collection {
     }
 
     try {
-      return await Collection.loadCollection(url, fetchMethod);
+      return await Collection.loadCollection(url, pathResolver, fetchMethod);
     } catch (e) {
       console.log("URL resource could not be parsed as a collection; attempting to make a single-database collection.");
     }
 
     // Could not load as a collection, attempt to load as a dataset.
     return await Collection.makeCollectionFromSingleDataset(url);
+  }
+
+  //
+  public static async loadCollectionFromFile(folderName: string, fileMap: Record<string, File>): Promise<Collection> {
+    const collectionFilePath = DEFAULT_COLLECTION_FILENAME;
+    const filePathResolver = new FilePathResolver(fileMap);
+
+    try {
+      return await Collection.loadCollection(collectionFilePath, filePathResolver);
+    } catch (e) {
+      console.error(e);
+    }
+
+    return await Collection.makeCollectionFromSingleDataset("", filePathResolver);
   }
 }

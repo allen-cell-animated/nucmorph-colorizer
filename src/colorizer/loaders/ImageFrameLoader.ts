@@ -29,7 +29,7 @@ async function loadImageElement(url: string): Promise<HTMLImageElement> {
   });
 }
 
-export default class ImageFrameLoader implements IFrameLoader {
+export default class UrlImageFrameLoader implements IFrameLoader {
   private pixelFormat: PixelFormat;
 
   constructor(pixelFormat: PixelFormat = RGBAIntegerFormat) {

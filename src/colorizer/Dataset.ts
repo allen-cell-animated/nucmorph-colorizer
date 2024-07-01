@@ -8,8 +8,9 @@ import { AnyManifestFile, ManifestFile, ManifestFileMetadata, updateManifestVers
 import * as urlUtils from "./utils/url_utils";
 
 import FrameCache from "./FrameCache";
+import { IPathResolver, UrlPathResolver } from "./loaders/FileSystemResolver";
 import { IArrayLoader, IFrameLoader } from "./loaders/ILoader";
-import ImageFrameLoader from "./loaders/ImageFrameLoader";
+import UrlImageFrameLoader from "./loaders/ImageFrameLoader";
 import JsonArrayLoader from "./loaders/JsonArrayLoader";
 import Track from "./Track";
 
@@ -49,6 +50,8 @@ const defaultMetadata: ManifestFileMetadata = {
 const MAX_CACHED_FRAMES = 60;
 
 export default class Dataset {
+  private pathResolver: IPathResolver;
+
   private frameLoader: IFrameLoader;
   private frameFiles: string[];
   private frames: FrameCache | null;
@@ -90,26 +93,31 @@ export default class Dataset {
    * @param frameLoader Optional.
    * @param arrayLoader Optional.
    */
-  constructor(manifestUrl: string, frameLoader?: IFrameLoader, arrayLoader?: IArrayLoader) {
-    this.manifestUrl = manifestUrl;
+  constructor(
+    manifestUrl: string,
+    options: { pathResolver?: IPathResolver; frameLoader?: IFrameLoader; arrayLoader?: IArrayLoader } = {}
+  ) {
+    this.pathResolver = options.pathResolver || new UrlPathResolver();
 
     this.baseUrl = urlUtils.formatPath(manifestUrl.substring(0, manifestUrl.lastIndexOf("/")));
     this.hasOpened = false;
+    this.manifestUrl = this.pathResolver.resolve("", manifestUrl)!;
 
-    this.frameLoader = frameLoader || new ImageFrameLoader(RGBAIntegerFormat);
+    this.frameLoader = options.frameLoader || new UrlImageFrameLoader(RGBAIntegerFormat);
     this.frameFiles = [];
     this.frames = null;
     this.frameDimensions = null;
 
-    this.backdropLoader = frameLoader || new ImageFrameLoader(RGBAFormat);
+    this.backdropLoader = options.frameLoader || new UrlImageFrameLoader(RGBAFormat);
     this.backdropData = new Map();
 
-    this.arrayLoader = arrayLoader || new JsonArrayLoader();
+    this.arrayLoader = options.arrayLoader || new JsonArrayLoader();
     this.features = new Map();
     this.metadata = defaultMetadata;
   }
 
-  private resolveUrl = (url: string): string => `${this.baseUrl}/${url}`;
+  // TODO: Handle null/nonexistent values gracefully?
+  private resolveUrl = (url: string): string => this.pathResolver.resolve(this.baseUrl, url)!;
 
   private async fetchJson(url: string): Promise<AnyManifestFile> {
     const response = await urlUtils.fetchWithTimeout(url, urlUtils.DEFAULT_FETCH_TIMEOUT_MS);
@@ -459,6 +467,7 @@ export default class Dataset {
   /** Frees the GPU resources held by this dataset */
   public dispose(): void {
     Object.values(this.features).forEach(({ tex }) => tex.dispose());
+    this.pathResolver.cleanup();
     this.frames?.dispose();
   }
 

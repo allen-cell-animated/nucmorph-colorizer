@@ -493,6 +493,10 @@ function decodePossiblyNullString(input: string | null): string | null {
   return input === null ? null : decodeURIComponent(input);
 }
 
+export function isBlob(path: string): boolean {
+  return /^blob:/.test(path);
+}
+
 /**
  * Returns whether the input string is a path to a .json file.
  * @param path The string path to test.
@@ -511,6 +515,9 @@ export function formatPath(input: string): string {
   input = input.trim();
   if (input.charAt(input.length - 1) === "/") {
     input = input.slice(0, input.length - 1);
+  }
+  if (input.charAt(0) === "/") {
+    input = input.slice(1);
   }
   return input.trim();
 }

@@ -6,8 +6,10 @@ import styled from "styled-components";
 import { useClickAnyWhere } from "usehooks-ts";
 
 import { Dataset } from "../colorizer";
+import { openDirectory } from "../colorizer/utils/file";
 import { useRecentCollections } from "../colorizer/utils/react_utils";
 import { convertAllenPathToHttps, isAllenPath } from "../colorizer/utils/url_utils";
+import { FlexRowAlignCenter } from "../styles/utils";
 
 import Collection from "../colorizer/Collection";
 import { AppThemeContext } from "./AppStyle";
@@ -84,6 +86,11 @@ export default function LoadDatasetButton(props: LoadDatasetButtonProps): ReactE
   const [errorText, setErrorText] = useState<string>("");
 
   const [isLoadModalOpen, setIsLoadModalOpen] = useState(false);
+
+  const [totalFiles, setTotalFiles] = useState(0);
+  const [loadedFiles, setLoadedFiles] = useState(0);
+  const totalFilesRef = useRef(0);
+  const loadedFilesRef = useRef(0);
 
   // BEHAVIOR ////////////////////////////////////////////////////////////
 
@@ -293,6 +300,43 @@ export default function LoadDatasetButton(props: LoadDatasetButtonProps): ReactE
                 </Button>
               </Space.Compact>
             </div>
+            <FlexRowAlignCenter $gap={8} style={{ margin: "5px 0px" }}>
+              <Button
+                onClick={async () => {
+                  setLoadedFiles(0);
+                  setTotalFiles(0);
+
+                  const onProgress = (deltaLoaded: number, deltaTotal: number) => {
+                    loadedFilesRef.current += deltaLoaded;
+                    totalFilesRef.current += deltaTotal;
+                    setLoadedFiles(loadedFilesRef.current);
+                    setTotalFiles(totalFilesRef.current);
+                  };
+
+                  const result = await openDirectory("read", {
+                    onFileDiscovered: () => {
+                      onProgress(0, 1);
+                    },
+                    onFileLoaded: () => {
+                      onProgress(1, 0);
+                    },
+                  });
+                  if (!result) {
+                    return;
+                  }
+                  const { folderName, fileMap } = result;
+                  const collection = await Collection.loadCollectionFromFile(folderName, fileMap);
+                  collection.tryLoadDataset(collection.getDefaultDatasetKey()).then((result) => {
+                    if (result.loaded) {
+                      props.onLoad(collection, collection.getDefaultDatasetKey(), result.dataset);
+                    }
+                  });
+                }}
+              >
+                Load directory
+              </Button>
+              Files loaded: {loadedFiles}/{totalFiles}
+            </FlexRowAlignCenter>
           </div>
 
           {errorText && (

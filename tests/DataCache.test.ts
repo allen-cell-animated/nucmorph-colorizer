@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import DataCache from "../src/colorizer/FrameCache";
+import DataCache from "../src/colorizer/DataCache";
 
 describe("DataCache", () => {
   class DisposableString {
@@ -155,5 +155,92 @@ describe("DataCache", () => {
     expect(cache.get("1")).toBe(undefined);
     expect(cache.get("2")).toEqual(["B"]);
     expect(cache.get("3")).toEqual(["C"]);
+  });
+
+  it("reserves keys and prevents them from being evicted", () => {
+    const cache = new DataCache<DisposableString>(3);
+    cache.insert("1", new DisposableString("A"));
+    cache.insert("2", new DisposableString("B"));
+    cache.insert("3", new DisposableString("C"));
+    cache.setReservedKeys(new Set(["1", "2"]));
+    expect(cache.size).toBe(3);
+
+    // Add another element, 4, to the cache, which will force an element to be
+    // evicted. 1 and 2 are oldest elements, but because they are reserved,
+    // element 3 is the oldest non-reserved element and will be evicted.
+    cache.insert("4", new DisposableString("D"));
+    expect(cache.size).toBe(3);
+    expect(cache.get("1")?.value).toBe("A");
+    expect(cache.get("2")?.value).toBe("B");
+    expect(cache.get("3")?.value).toBe(undefined);
+    expect(cache.get("4")?.value).toBe("D");
+  });
+
+  it("allows unreserved keys to be evicted", () => {
+    const cache = new DataCache<DisposableString>(2);
+    cache.insert("1", new DisposableString("A"));
+    cache.insert("2", new DisposableString("B"));
+    cache.setReservedKeys(new Set(["1"]));
+    expect(cache.size).toBe(2);
+
+    // 1 is reserved, so 2 will be evicted when a new value is inserted.
+    cache.insert("3", new DisposableString("C"));
+    expect(cache.size).toBe(2);
+    expect(cache.get("1")?.value).toBe("A");
+    expect(cache.get("2")?.value).toBe(undefined);
+    expect(cache.get("3")?.value).toBe("C");
+
+    // Remove 1 from the reserved keys. It will be added to the front of the list.
+    cache.setReservedKeys(new Set([]));
+
+    // Test that 1 is at the front of the list (3 should be the oldest
+    // and evicted next time a new value is inserted).
+    cache.insert("4", new DisposableString("D"));
+    expect(cache.size).toBe(2);
+    expect(cache.get("1")?.value).toBe("A");
+    expect(cache.get("4")?.value).toBe("D");
+
+    // Inserting one more value will evict 1
+    cache.insert("5", new DisposableString("E"));
+    expect(cache.size).toBe(2);
+    expect(cache.get("4")?.value).toBe("D");
+    expect(cache.get("5")?.value).toBe("E");
+  });
+
+  it("reserves keys even if they are added to the cache later", () => {
+    const cache = new DataCache<DisposableString>(2);
+    cache.setReservedKeys(new Set(["1"]));
+    cache.insert("1", new DisposableString("A"));
+    cache.insert("2", new DisposableString("B"));
+    cache.insert("3", new DisposableString("C"));
+    expect(cache.size).toBe(2);
+
+    expect(cache.get("1")?.value).toBe("A");
+    expect(cache.get("2")?.value).toBe(undefined);
+    expect(cache.get("3")?.value).toBe("C");
+  });
+
+  it("keeps newly added value even if it + reserved keys would exceed max size", () => {
+    const cache = new DataCache<DisposableString>(2);
+    cache.setReservedKeys(new Set(["1", "2"]));
+    cache.insert("1", new DisposableString("A"));
+    cache.insert("2", new DisposableString("B"));
+    expect(cache.size).toBe(2);
+
+    // Inserting a third value exceeds the max, but because it is new
+    // it should not be immediately evicted.
+    cache.insert("3", new DisposableString("C"));
+    expect(cache.size).toBe(3);
+    expect(cache.get("1")?.value).toBe("A");
+    expect(cache.get("2")?.value).toBe("B");
+    expect(cache.get("3")?.value).toBe("C");
+
+    // Inserting another value should evict 3.
+    cache.insert("4", new DisposableString("D"));
+    expect(cache.get("1")?.value).toBe("A");
+    expect(cache.get("2")?.value).toBe("B");
+    expect(cache.size).toBe(3);
+    expect(cache.get("3")?.value).toBe(undefined);
+    expect(cache.get("4")?.value).toBe("D");
   });
 });

@@ -7,7 +7,7 @@ import { getKeyFromName } from "./utils/data_utils";
 import { AnyManifestFile, ManifestFile, ManifestFileMetadata, updateManifestVersion } from "./utils/dataset_utils";
 import * as urlUtils from "./utils/url_utils";
 
-import DataCache from "./FrameCache";
+import DataCache from "./DataCache";
 import { IArrayLoader, IFrameLoader } from "./loaders/ILoader";
 import ImageFrameLoader from "./loaders/ImageFrameLoader";
 import JsonArrayLoader from "./loaders/JsonArrayLoader";
